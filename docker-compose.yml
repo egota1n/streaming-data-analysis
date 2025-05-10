@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: bitnami/zookeeper:3.9
+    container_name: zookeeper
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/bitnami/zookeeper
+
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: kafka
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,PLAINTEXT_HOST://:29092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false # Отключаем автосоздание, управляем вручную
+    volumes:
+      - kafka_data:/bitnami/kafka
+    depends_on:
+      - zookeeper
+
+  kafka-topics-initializer:
+    image: bitnami/kafka:3.7
+    container_name: kafka-topics-initializer
+    depends_on:
+      - kafka
+    restart: on-failure
+    command: >
+      bash -c "
+      echo 'Waiting for Kafka to be ready...';
+      while ! kafka-topics.sh --bootstrap-server kafka:9092 --list; do
+        sleep 1;
+      done;
+      echo 'Creating topics...';
+      kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic earthquakes-raw --partitions 1 --replication-factor 1;
+      kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic earthquakes-processed --partitions 1 --replication-factor 1;
+      echo 'Topics created successfully!';
+      exit 0
+      "
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8090:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local-kafka
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+    depends_on:
+      - kafka
+
+volumes:
+  zookeeper_data:
+  kafka_data:
