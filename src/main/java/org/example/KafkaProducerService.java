@@ -33,8 +33,8 @@ public class KafkaProducerService {
                 "org.apache.kafka.common.serialization.StringSerializer");
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                 "org.apache.kafka.common.serialization.StringSerializer");
-        props.put(ProducerConfig.ACKS_CONFIG, "all"); // Для надёжности
-        props.put(ProducerConfig.RETRIES_CONFIG, 3); // Ретрии при ошибках
+        props.put(ProducerConfig.ACKS_CONFIG, "all");
+        props.put(ProducerConfig.RETRIES_CONFIG, 3);
 
         return new KafkaProducer<>(props);
     }
@@ -47,18 +47,23 @@ public class KafkaProducerService {
 
     public void processEarthquakeData(String message) {
         try {
-            // 1. Отправляем сырые данные
             sendToKafka(RAW_DATA_TOPIC, message, null);
 
-            // 2. Парсим и валидируем сообщение
             JsonNode rootNode = objectMapper.readTree(message);
+            String action = rootNode.path("action").asText();
+
+            if ("update".equals(action)) {
+                logger.info("Skipping processed data for update action: {}", message);
+                return;
+            }
+
+            JsonNode properties = rootNode.path("data").path("properties");
             if (!isValidEarthquakeMessage(rootNode)) {
                 logger.warn("Invalid message structure: {}", message);
                 return;
             }
 
-            // 3. Создаём и отправляем обработанное событие
-            EarthquakeEvent event = createEventFromProperties(rootNode.get("data").get("properties"));
+            EarthquakeEvent event = createEventFromProperties(rootNode);
             String processedData = objectMapper.writeValueAsString(event);
             sendToKafka(PROCESSED_DATA_TOPIC, processedData, event);
 
@@ -85,20 +90,35 @@ public class KafkaProducerService {
     private boolean isValidEarthquakeMessage(JsonNode rootNode) {
         try {
             JsonNode properties = rootNode.path("data").path("properties");
+            JsonNode geometry = rootNode.path("data").path("geometry");
+
             return properties.has("time")
                     && properties.has("lat")
                     && properties.has("lon")
-                    && properties.has("mag");
+                    && properties.has("mag")
+                    && geometry.has("coordinates");
         } catch (Exception e) {
             return false;
         }
     }
 
-    private EarthquakeEvent createEventFromProperties(JsonNode properties) throws IOException {
+    private EarthquakeEvent createEventFromProperties(JsonNode rootNode) throws IOException {
+        JsonNode properties = rootNode.path("data").path("properties");
+        JsonNode geometry = rootNode.path("data").path("geometry");
+
+        double[] coordinates = new double[3];
+        if (geometry.has("coordinates")) {
+            coordinates = new double[]{
+                    geometry.get("coordinates").get(0).asDouble(), // lon
+                    geometry.get("coordinates").get(1).asDouble(), // lat
+                    geometry.get("coordinates").get(2).asDouble()  // depth
+            };
+        }
+
         return new EarthquakeEvent(
                 Instant.parse(properties.get("time").asText()),
-                properties.get("lat").asDouble(),
-                properties.get("lon").asDouble(),
+                coordinates[1], // lat
+                coordinates[0], // lon
                 properties.get("mag").asDouble(),
                 properties.path("flynn_region").asText(properties.path("auth").asText("Unknown"))
         );

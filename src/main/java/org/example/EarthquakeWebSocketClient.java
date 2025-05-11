@@ -21,7 +21,6 @@ public class EarthquakeWebSocketClient extends WebSocketClient {
 
     @Override
     public void onMessage(String message) {
-        // Обработка входящих данных о землетрясениях
         producerService.processEarthquakeData(message);
     }
 

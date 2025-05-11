@@ -20,7 +20,6 @@ public class EarthquakeAnalyzer {
     private final ObjectMapper objectMapper;
 
     public EarthquakeAnalyzer() {
-        // 1. Настройка Kafka Consumer
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:29092");
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "earthquake-analyzer");
@@ -34,7 +33,6 @@ public class EarthquakeAnalyzer {
         this.consumer = new KafkaConsumer<>(props);
         this.consumer.subscribe(Collections.singletonList(PROCESSED_DATA_TOPIC));
 
-        // 2. Правильная настройка ObjectMapper
         this.objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -50,7 +48,6 @@ public class EarthquakeAnalyzer {
                         EarthquakeEvent event = objectMapper.readValue(record.value(), EarthquakeEvent.class);
                         logger.info("Processed earthquake: {}", event);
 
-                        // Здесь можно добавить логику анализа
                         processEvent(event);
 
                     } catch (Exception e) {
@@ -71,8 +68,6 @@ public class EarthquakeAnalyzer {
     }
 
     private void processEvent(EarthquakeEvent event) {
-        // Реализуйте здесь вашу логику анализа
-        // Например:
         logger.debug("Processing event at {} (mag {}) in {}",
                 event.getTimestamp(),
                 event.getMagnitude(),
