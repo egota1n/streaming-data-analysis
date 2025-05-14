@@ -11,7 +11,7 @@ public class EarthquakeGenerationApp {
                 String earthquakeData = dataGenerator.generateEarthquakeData();
                 producerService.processEarthquakeData(earthquakeData);
 
-                Thread.sleep(1);
+                Thread.sleep(300);
             }
 
             producerService.close();

@@ -49,6 +49,7 @@ services:
       kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic earthquakes-raw --partitions 1 --replication-factor 1;
       kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic earthquakes-processed --partitions 1 --replication-factor 1;
       kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic earthquakes-strong --partitions 1 --replication-factor 1;
+      kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic earthquakes-stats-hourly --partitions 1 --replication-factor 1;
       echo 'Topics created successfully!';
       exit 0
       "
