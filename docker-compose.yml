@@ -100,6 +100,16 @@ services:
     networks:
       - flink-net
 
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - "3015:3015"
+    depends_on:
+      - kafka
+    networks:
+      - flink-net
+
 volumes:
   zookeeper_data:
   kafka_data:
