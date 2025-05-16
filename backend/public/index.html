@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Earthquake Monitor</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        h1 { color: #333; }
+        h2 { margin-top: 30px; color: #444; }
+        .all { display: flex; gap: 50px; margin-top: 20px; }
+        .quake, .stat {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-left: 5px solid #999;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .strong-indicator {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        #loading {
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            margin: 20px 0;
+            display: inline-block;
+        }
+        @media (max-width: 768px) {
+            .all { flex-direction: column; gap: 30px; }
+        }
+    </style>
+</head>
+<body>
+<h1>🌍 Real-Time Earthquake Monitor</h1>
+<div id="loading">Loading historical data...</div>
+
+<div class="all">
+    <div style="flex: 1;">
+        <h2>🟥 Recent Strong Earthquakes</h2>
+        <div id="quakes"></div>
+    </div>
+
+    <div style="flex: 1;">
+        <h2>📊 Hourly Statistics</h2>
+        <div id="stats"></div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io();
+    const MAX_QUAKES = 50;
+    const MAX_STATS = 24;
+
+    function displayQuake(quake, prepend = false) {
+      const container = document.getElementById('quakes');
+      const mag = Math.min(Math.max(quake.magnitude, 4), 10);
+
+      let red, green;
+      if (mag <= 7) {
+        const t = (mag - 4) / 3;
+        red = Math.round(255 * t);
+        green = 255;
+      } else {
+        const t = (mag - 7) / 3;
+        red = 255;
+        green = Math.round(255 * (1 - t));
+      }
+
+      const div = document.createElement('div');
+      div.className = 'quake';
+      div.innerHTML = `
+        <span class="strong-indicator" style="background-color: rgb(${red}, ${green}, 0)"></span>
+        <strong>${quake.location || 'Unknown location'}</strong><br/>
+        Magnitude: ${quake.magnitude.toFixed(1)}<br/>
+        Time: ${new Date(quake.timestamp).toLocaleString()}<br/>
+        Coordinates: ${quake.latitude?.toFixed(2)}, ${quake.longitude?.toFixed(2)}
+      `;
+
+      prepend ? container.prepend(div) : container.appendChild(div);
+
+      if (container.children.length > MAX_QUAKES) {
+        container.removeChild(container.lastChild);
+      }
+    }
+
+    function displayStat(stat, prepend = false) {
+      const container = document.getElementById('stats');
+      const div = document.createElement('div');
+      div.className = 'stat';
+      div.innerHTML = `
+        <strong>Time period:</strong><br/>
+        ${new Date(stat.window_start).toLocaleString()} to<br/>
+        ${new Date(stat.window_end).toLocaleString()}<br/>
+        <strong>Earthquake count:</strong> ${stat.count}
+      `;
+
+      prepend ? container.prepend(div) : container.appendChild(div);
+
+      if (container.children.length > MAX_STATS) {
+        container.removeChild(container.lastChild);
+      }
+    }
+
+    async function loadHistoricalData() {
+      try {
+        const quakesResponse = await fetch('/api/earthquakes');
+        const quakes = await quakesResponse.json();
+        quakes.forEach(quake => displayQuake(quake, false));
+
+        const statsResponse = await fetch('/api/stats');
+        const stats = await statsResponse.json();
+        stats.forEach(stat => displayStat(stat, false));
+
+      } catch (e) {
+        console.error('Failed to load historical data:', e);
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+      }
+    }
+
+    socket.on('earthquake', (data) => {
+      try {
+        const quake = JSON.parse(data);
+        displayQuake(quake, true);
+      } catch (e) {
+        console.error('Failed to parse earthquake data:', e);
+      }
+    });
+    
+    socket.on('stats-hourly', (data) => {
+      try {
+        const stat = JSON.parse(data);
+        displayStat(stat, true);
+      } catch (e) {
+        console.error('Failed to parse stats data:', e);
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', loadHistoricalData);
+</script>
+</body>
+</html>

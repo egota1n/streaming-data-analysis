@@ -49,6 +49,7 @@ services:
       kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic earthquakes-raw --partitions 1 --replication-factor 1;
       kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic earthquakes-processed --partitions 1 --replication-factor 1;
       kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic earthquakes-strong --partitions 1 --replication-factor 1;
+      kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic earthquakes-stats-hourly --partitions 1 --replication-factor 1;
       echo 'Topics created successfully!';
       exit 0
       "
@@ -96,6 +97,16 @@ services:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: jobmanager
         taskmanager.numberOfTaskSlots: 2
+    networks:
+      - flink-net
+
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - "3015:3015"
+    depends_on:
+      - kafka
     networks:
       - flink-net
 
